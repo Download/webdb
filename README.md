@@ -30,3 +30,9 @@ component. The server-side component is written in Java but doesn't have to be.
 ## Under construction
 WebDB is currently under heavy development and not ready for production just yet. 
 Use at your own risk!
+
+## Copyright
+Copyright 2015 by [Stijn de Witt](http://StijnDeWitt.com). Some rights reserved.
+
+## License
+Licensed under [Creative Commons Attribution 4.0 International (CC-BY-4.0)](https://creativecommons.org/licenses/by/4.0/).
