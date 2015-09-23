@@ -19,9 +19,9 @@ If you'd rather host the file on your own server, or use the debug version:
 * [webdb.min.js.map](https://cdn.rawgit.com/download/webdb/0.3.0/dist/webdb.min.js.map) (~17kB debug info)
 
 ### NPM
-'''sh
+```sh
 npm install webdb
-'''
+```
 
 ## Include WebDB on your page
 WebDB supports the Universal Module Definition and can be used directly from a script tag,
@@ -83,7 +83,7 @@ var characters = db.createTable('characters', {
 	'firstName': {type:String, length:32, index:true},
 	'lastName': {type:String, length:32, index:true},
 	'description': String, // shortcut for {type:String}
-	'weaponOfChoice': {type:Number, fk:{weapons:'id'}},
+	'weaponOfChoice': {type:Number, fk:'weapons'}},
 });
 ```
 If no table definition is given, the table gets two columns, `id` and `version`, 
@@ -166,7 +166,7 @@ you need an Ajax call.
 
 Get amount of records in resultset:
 ```js
-var daltons characters.get({lastName:'Dalton'}); 
+var daltons = characters.get({lastName:'Dalton'}); 
 var daltonCount = daltons.length; // 4;
 ```
 
