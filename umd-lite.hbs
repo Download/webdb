@@ -1,8 +1,8 @@
 (function (u, m, d) {
 	if (typeof define === 'function' && define.amd) {define({{#if amdModuleId}}'{{amdModuleId}}', {{/if}}[{{{amdDependencies.wrapped}}}], function({{{amdDependencies.params}}}){return (d({{{amdDependencies.params}}}));});}
 	else if (typeof exports === 'object') {module.exports = d({{{cjsDependencies.wrapped}}});}
-	else {u[m] = d(u['MemoryStorage']);}
-}(this, '{{{objectToExport}}}', function(MemoryStorage) {'use strict';
+	else {u[m] = d();}
+}(this, '{{{objectToExport}}}', function() {'use strict';
 
 {{{code}}}
 

@@ -4,29 +4,6 @@ module.exports = function(grunt) {
 	var pkg = grunt.file.readJSON('package.json');
 	grunt.initConfig({
 		pkg: pkg,
-		urequire: {
-			_defaults: {
-				bundle: {
-					path: 'src',
-					name: 'webdb'
-				}
-/*				dependencies: {
-					imports: {
-						'memorystorage': 'MemoryStorage'
-					}
-				},
-*/
-//				resources: ['inject-version'],
-			},
-			UMD: {
-				template: 'UMDplain',
-				dstPath: 'build/UMD'
-			},
-			dev: {
-				template: 'combined',
-				dstPath: 'build/myLibrary-dev.js'
-			}
-		},
 		jshint: {
 			options : {
 				jshintrc : '.jshintrc'
@@ -40,8 +17,7 @@ module.exports = function(grunt) {
 					dest: '<%= pkg.dist.umd %>', 
 					template: 'umd-lite.hbs', 
 					objectToExport: '<%= pkg.exports[0] %>',
-					amdModuleId: '<%= pkg.name %>',
-					deps: {'default': ['memorystorage']}
+					amdModuleId: '<%= pkg.name %>'
 				}
 			}
 		},
@@ -74,9 +50,17 @@ module.exports = function(grunt) {
 	grunt.registerTask('default', [
 		'jshint', 
 		'umd', 
-		'uglify', 
+		'uglify'
+	]);
+	
+	grunt.registerTask('docs', [
 		'jsdoc'
-//		,
-//		'urequire'
+	]);
+	
+	grunt.registerTask('all', [
+		'jshint', 
+		'umd', 
+		'uglify',
+		'jsdoc'
 	]);
 }

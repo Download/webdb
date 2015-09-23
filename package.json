@@ -1,6 +1,6 @@
 {
   "name": "webdb",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Database on top of localStorage that is synched between client and server.",
   "main": "src/webdb.js",
   "dist": {

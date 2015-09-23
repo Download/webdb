@@ -1,7 +1,6 @@
 require.config({
 	baseUrl: '../dist',
 	paths: {
-		'memorystorage': 'https://cdn.rawgit.com/download/memorystorage/0.9.10/dist/memorystorage.min',
 		'webdb': './webdb.umd',
 	}
 });

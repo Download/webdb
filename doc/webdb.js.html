@@ -1,10 +1,51 @@
-(function (u, m, d) {
-	if (typeof define === 'function' && define.amd) {define('webdb', [], function(){return (d());});}
-	else if (typeof exports === 'object') {module.exports = d();}
-	else {u[m] = d();}
-}(this, 'WebDB', function() {'use strict';
+<!DOCTYPE html>
 
-function WebDB(name, options){
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>DocStrap Source: webdb.js</title>
+
+	<!--[if lt IE 9]>
+	<script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+	<![endif]-->
+	<link type="text/css" rel="stylesheet" href="styles/sunlight.default.css">
+
+	<link type="text/css" rel="stylesheet" href="styles/site.cosmo.css">
+
+</head>
+
+<body>
+
+<div class="navbar navbar-default navbar-fixed-top navbar-inverse">
+<div class="container">
+	<div class="navbar-header">
+		<a class="navbar-brand" href="index.html">DocStrap</a>
+	</div>
+	<div class="navbar-collapse">
+		<ul class="nav navbar-nav">
+			
+		</ul>
+	</div>
+</div>
+</div>
+
+
+<div class="container">
+<div class="row">
+
+	
+	<div class="col-md-12">
+	
+		<div id="main">
+    		<h1 class="page-title">Source: webdb.js</h1>
+			
+
+		<h1 class="page-title">Source: webdb.js</h1>
+    
+<section>
+	<article>
+		<pre
+			class="sunlight-highlight-javascript linenums">function WebDB(name, options){
 	var DEFAULT_DB_OPTIONS = {
 		synch: false, // set this to true to allow the db to be synched to a remote counterpart
 		synchUrl: '/webdb/synch',
@@ -51,7 +92,7 @@ function WebDB(name, options){
 		enumerable: false,
 		get: function() {return function dropTable(name) {
 			if (!tables[name]) {
-				if (window.console && console.warn) {console.warn('Call to dropTable() is ignored.', new Error('No table named `' + name + '` exists.'));}
+				if (window.console &amp;&amp; console.warn) {console.warn('Call to dropTable() is ignored.', new Error('No table named `' + name + '` exists.'));}
 			}
 			delete db[name];
 			delete tables[name];
@@ -181,7 +222,7 @@ function WebDB(name, options){
 
 		function get(criteria) {
 			var i, j, key, pk, pks, fast={}, slow={}, idSet={}, results=[];
-			if ((typeof criteria != 'object') && (Object(criteria) instanceof me.definition.columns[me.definition.pk].type)) {
+			if ((typeof criteria != 'object') &amp;&amp; (Object(criteria) instanceof me.definition.columns[me.definition.pk].type)) {
 				pk = criteria;
 				criteria = {};
 				criteria[me.definition.pk] = pk;
@@ -194,15 +235,15 @@ function WebDB(name, options){
 			var tableScan = true;
 			if (typeof pks != 'undefined') {
 				if (!Array.isArray(pks)) {pks = [pks];}
-				for (i=0; i<pks.length; i++) {idSet[pks[i]] = 1;}
+				for (i=0; i&lt;pks.length; i++) {idSet[pks[i]] = 1;}
 				tableScan = false;
 			}
 			for (key in fast) {
 				if (!Array.isArray(fast[key])) {fast[key] = [fast[key]];}
-				for (i=0; i<fast[key].length; i++) {
+				for (i=0; i&lt;fast[key].length; i++) {
 					pks = indexes[key].search(fast[key][i]);
 					var newIdSet = {};
-					for (j=0; j<pks.length; j++) {
+					for (j=0; j&lt;pks.length; j++) {
 						if (tableScan || idSet[pks[j]]) { // on first iteration, add all found results
 							newIdSet[pks[j]] = 1;
 						}
@@ -220,7 +261,7 @@ function WebDB(name, options){
 					if (records.length) {results.push(records[0]);}
 				}
 			}
-			for (i=0; i<results.length; i++) {
+			for (i=0; i&lt;results.length; i++) {
 				if (! (results[i] instanceof me.definition.entityType)) {
 					results[i] = me.definition.factory(results[i]);
 				}
@@ -284,7 +325,7 @@ function WebDB(name, options){
 
 		function handleSetHistory(item, backup) {
 			var idx;
-			if (!meta && db.options.synch) {
+			if (!meta &amp;&amp; db.options.synch) {
 				// item had been deleted previously?
 				idx = indexOf(deleted, item);
 				if (idx !== -1) {backup = deleted.splice(idx, 1);}
@@ -320,7 +361,7 @@ function WebDB(name, options){
 
 		function handleDelHistory(item, backup) {
 			var idx, createdIdx, removed;
-			if (!meta && db.options.synch) {
+			if (!meta &amp;&amp; db.options.synch) {
 				createdIdx = indexOf(created, item);
 				// if item is in remote db, it is not in created list
 				if (createdIdx === -1) {
@@ -343,7 +384,7 @@ function WebDB(name, options){
 	}
 
 	Table.prototype.persistent = function persistent(item) {
-		return item[this.definition.version] !== null && item[this.definition.version] !== undefined;
+		return item[this.definition.version] !== null &amp;&amp; item[this.definition.version] !== undefined;
 	};
 
 	Table.prototype.toJSON = function toJSON() {
@@ -442,7 +483,7 @@ var DBS = {};
 
 // ===== 'GLOBAL' PRIVATE FUNCTIONS =====
 function eachArg(args, obj, fn) {
-	if (('length' in args) && args.length && args[args.length-1]) {
+	if (('length' in args) &amp;&amp; args.length &amp;&amp; args[args.length-1]) {
 		var results = [];
 		for (var i=0,item; item=args[i]; i++) {
 			results.push.apply(results, eachArg(item, obj, fn));
@@ -454,11 +495,11 @@ function eachArg(args, obj, fn) {
 
 function equals(one, other) {
 	return (one === other ||
-			one.equals && one.equals(other) ||
-			other.equals && other.equals(one) ||
-			(typeof one === 'object' && one.valueOf() == other) ||
-			(typeof other === 'object' && other.valueOf() == one) ||
-			(typeof one === 'object' && typeof other === 'object' && one.valueOf() == other.valueOf()));
+			one.equals &amp;&amp; one.equals(other) ||
+			other.equals &amp;&amp; other.equals(one) ||
+			(typeof one === 'object' &amp;&amp; one.valueOf() == other) ||
+			(typeof other === 'object' &amp;&amp; other.valueOf() == one) ||
+			(typeof one === 'object' &amp;&amp; typeof other === 'object' &amp;&amp; one.valueOf() == other.valueOf()));
 }
 
 // returns index of given element in given list, using given comparator
@@ -476,7 +517,7 @@ function matches(items, criteria) {
 	for (i=0,item; item=items[i]; i++) {
 		match = true;
 		for (key in criteria) {
-			if ((Array.isArray && Array.isArray(criteria[key])) || (criteria[key] instanceof Array)) {
+			if ((Array.isArray &amp;&amp; Array.isArray(criteria[key])) || (criteria[key] instanceof Array)) {
 				if (indexOf(criteria[key], item[key]) === -1) {
 					match = false;
 					break;
@@ -498,7 +539,7 @@ function matches(items, criteria) {
 // Licensed under MIT
 var Index = WebDB.Index = (function(){
 	// Default key comparison and data equality comparison functions
-	function compare (a, b) {return a < b ? -1 : a > b ? 1 : 0;}
+	function compare (a, b) {return a &lt; b ? -1 : a > b ? 1 : 0;}
 	function equals (a, b) {return a === b;}
 	
 	/**
@@ -512,10 +553,10 @@ var Index = WebDB.Index = (function(){
 	 */
 	function Tree(options) {
 		this.root = new Node(this, options);
-		this.unique = options && options.unique || false;
-		this.compare = options && options.compare || compare;
-		this.equals = options && options.equals || equals;
-		this.id = options && options.id || undefined;
+		this.unique = options &amp;&amp; options.unique || false;
+		this.compare = options &amp;&amp; options.compare || compare;
+		this.equals = options &amp;&amp; options.equals || equals;
+		this.id = options &amp;&amp; options.id || undefined;
 	}
 
 	Tree.prototype.insert = function (key, value) {
@@ -540,9 +581,9 @@ var Index = WebDB.Index = (function(){
 	 */
 	function Node(tree, options) {
 		this.tree = tree;
-		if (options && options.parent) {this.parent = options.parent;}
-		if (options && options.hasOwnProperty('key')) { this.key = options.key; }
-		this.data = options && options.hasOwnProperty('value') ? [options.value] : [];
+		if (options &amp;&amp; options.parent) {this.parent = options.parent;}
+		if (options &amp;&amp; options.hasOwnProperty('key')) { this.key = options.key; }
+		this.data = options &amp;&amp; options.hasOwnProperty('value') ? [options.value] : [];
 	}
 
 	/**
@@ -579,7 +620,7 @@ var Index = WebDB.Index = (function(){
 
 			insertPath.push(current);
 
-			if (this.tree.compare(key, current.key) < 0) {
+			if (this.tree.compare(key, current.key) &lt; 0) {
 				if (!current.left) {
 					current.left = new current.constructor(current.tree, {parent:current, key:key, value:value});
 					insertPath.push(current.left);
@@ -638,7 +679,7 @@ var Index = WebDB.Index = (function(){
 				return this;
 			}
 
-			if (this.tree.compare(key, current.key) < 0) {
+			if (this.tree.compare(key, current.key) &lt; 0) {
 				if (!current.left) {
 					throw {
 						message: 'Can\'t update value [' + value + '] for key [' + key + ']. Key is not present.', 
@@ -679,7 +720,7 @@ var Index = WebDB.Index = (function(){
 		while (true) {
 			if (this.tree.compare(key, current.key) === 0) { break; }
 			path.push(current);
-			if (this.tree.compare(key, current.key) < 0) {
+			if (this.tree.compare(key, current.key) &lt; 0) {
 				if (current.left) {current = current.left;} 
 				else {return this;}   // Key not found, no modification
 			} 
@@ -690,7 +731,7 @@ var Index = WebDB.Index = (function(){
 			}
 		}
 		// Delete only a value (no tree modification)
-		if (current.data.length > 1 && value) {
+		if (current.data.length > 1 &amp;&amp; value) {
 			current.data.forEach(function (d) {
 				if (!this.tree.equals(d, value)) { newData.push(d); }
 			});
@@ -699,7 +740,7 @@ var Index = WebDB.Index = (function(){
 		}
 		// Delete a whole node
 		// Leaf
-		if (!current.left && !current.right) {
+		if (!current.left &amp;&amp; !current.right) {
 			if (current === this) {   // This leaf is also the root
 				delete current.key;
 				current.data = [];
@@ -789,7 +830,7 @@ var Index = WebDB.Index = (function(){
 		else {key = query;}
 		if (key === undefined) {return [];}
 		if (this.tree.compare(this.key, key) === 0) { return this.data; }
-		if (this.tree.compare(key, this.key) < 0) {
+		if (this.tree.compare(key, this.key) &lt; 0) {
 			if (this.left) {return this.left.search(key);} 
 			else {return [];}
 		} 
@@ -812,10 +853,10 @@ var Index = WebDB.Index = (function(){
 	 */
 	function getLowerBoundMatcher(compare, query) {
 		// No lower bound
-		if (!query.hasOwnProperty('$gt') && !query.hasOwnProperty('$gte')) {
+		if (!query.hasOwnProperty('$gt') &amp;&amp; !query.hasOwnProperty('$gte')) {
 			return function(){return true;};
 		}
-		if (query.hasOwnProperty('$gt') && query.hasOwnProperty('$gte')) {
+		if (query.hasOwnProperty('$gt') &amp;&amp; query.hasOwnProperty('$gte')) {
 			if (compare(query.$gte, query.$gt) === 0) {
 				return function (key) { return compare(key, query.$gt) > 0; };
 			}
@@ -837,23 +878,23 @@ var Index = WebDB.Index = (function(){
 	 */
 	function getUpperBoundMatcher(compare, query) {
 		// No lower bound
-		if (!query.hasOwnProperty('$lt') && !query.hasOwnProperty('$lte')) {
+		if (!query.hasOwnProperty('$lt') &amp;&amp; !query.hasOwnProperty('$lte')) {
 			return function () { return true; };
 		}
-		if (query.hasOwnProperty('$lt') && query.hasOwnProperty('$lte')) {
+		if (query.hasOwnProperty('$lt') &amp;&amp; query.hasOwnProperty('$lte')) {
 			if (compare(query.$lte, query.$lt) === 0) {
-				return function (key) { return compare(key, query.$lt) < 0; };
+				return function (key) { return compare(key, query.$lt) &lt; 0; };
 			}
-			if (compare(query.$lte, query.$lt) < 0) {
-				return function (key) { return compare(key, query.$lte) <= 0; };
+			if (compare(query.$lte, query.$lt) &lt; 0) {
+				return function (key) { return compare(key, query.$lte) &lt;= 0; };
 			} else {
-				return function (key) { return compare(key, query.$lt) < 0; };
+				return function (key) { return compare(key, query.$lt) &lt; 0; };
 			}
 		}
 		if (query.hasOwnProperty('$lt')) {
-			return function (key) { return compare(key, query.$lt) < 0; };
+			return function (key) { return compare(key, query.$lt) &lt; 0; };
 		} else {
-			return function (key) { return compare(key, query.$lte) <= 0; };
+			return function (key) { return compare(key, query.$lte) &lt;= 0; };
 		}
 	}
 
@@ -869,9 +910,9 @@ var Index = WebDB.Index = (function(){
 		if (!node.hasOwnProperty('key')) { return res; }   // Empty tree
 		lbm = lbm || getLowerBoundMatcher(node.tree.compare, query);
 		ubm = ubm || getUpperBoundMatcher(node.tree.compare, query);
-		if (lbm(node.key) && node.left) { res.push.apply(res, betweenBounds(node.left, query, lbm, ubm)); }
-		if (lbm(node.key) && ubm(node.key)) { res.push.apply(res, node.data); }
-		if (ubm(node.key) && node.right) { res.push.apply(res, betweenBounds(node.right, query, lbm, ubm)); }
+		if (lbm(node.key) &amp;&amp; node.left) { res.push.apply(res, betweenBounds(node.left, query, lbm, ubm)); }
+		if (lbm(node.key) &amp;&amp; ubm(node.key)) { res.push.apply(res, node.data); }
+		if (ubm(node.key) &amp;&amp; node.right) { res.push.apply(res, betweenBounds(node.right, query, lbm, ubm)); }
 		return res;
 	}
 
@@ -949,8 +990,8 @@ var Index = WebDB.Index = (function(){
 	 * Return the new root if any
 	 */
 	function rightTooSmall(node) {
-		if (balanceFactor(node) <= 1) { return node; }   // Right is not too small, don't change
-		if (balanceFactor(node.left) < 0) {leftRotation(node.left);}
+		if (balanceFactor(node) &lt;= 1) { return node; }   // Right is not too small, don't change
+		if (balanceFactor(node.left) &lt; 0) {leftRotation(node.left);}
 		return rightRotation(node);
 	}
 
@@ -981,7 +1022,7 @@ var Index = WebDB.Index = (function(){
 				rotated = rightTooSmall(path[i]);
 				if (i === 0) { newRoot = rotated; }
 			}
-			if (balanceFactor(path[i]) < -1) {
+			if (balanceFactor(path[i]) &lt; -1) {
 				rotated = leftTooSmall(path[i]);
 				if (i === 0) { newRoot = rotated; }
 			}
@@ -990,7 +1031,106 @@ var Index = WebDB.Index = (function(){
 	}
 
 	return Tree;
-})();
+})();</pre>
+	</article>
+</section>
 
-return WebDB;
-}));
+
+
+
+
+		</div>
+	</div>
+
+	<div class="clearfix"></div>
+
+	
+
+</div>
+</div>
+
+
+<footer>
+
+
+	<span class="copyright">
+	DocStrap Copyright © 2012-2014 The contributors to the JSDoc3 and DocStrap projects.
+	</span>
+	<br />
+
+<span class="jsdoc-message">
+	Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.3.2</a>
+	on Wed Sep 23rd 2015 using the <a
+	href="https://github.com/terryweiss/docstrap">DocStrap template</a>.
+</span>
+</footer>
+
+<!--<script src="scripts/sunlight.js"></script>-->
+<script src="scripts/docstrap.lib.js"></script>
+<script src="scripts/bootstrap-dropdown.js"></script>
+<script src="scripts/toc.js"></script>
+
+<script>
+$( function () {
+	$( "[id*='$']" ).each( function () {
+		var $this = $( this );
+
+		$this.attr( "id", $this.attr( "id" ).replace( "$", "__" ) );
+	} );
+
+	$( "#toc" ).toc( {
+		anchorName  : function ( i, heading, prefix ) {
+			return $( heading ).attr( "id" ) || ( prefix + i );
+		},
+		selectors   : "h1,h2,h3,h4",
+		showAndHide : false,
+		scrollTo    : "100px"
+	} );
+
+	$( "#toc>ul" ).addClass( "nav nav-pills nav-stacked" );
+	$( "#main span[id^='toc']" ).addClass( "toc-shim" );
+	$( '.dropdown-toggle' ).dropdown();
+	//			$( ".tutorial-section pre, .readme-section pre" ).addClass( "sunlight-highlight-javascript" ).addClass( "linenums" );
+
+	$( ".tutorial-section pre, .readme-section pre" ).each( function () {
+		var $this = $( this );
+
+		var example = $this.find( "code" );
+		exampleText = example.html();
+		var lang = /{@lang (.*?)}/.exec( exampleText );
+		if ( lang && lang[1] ) {
+			exampleText = exampleText.replace( lang[0], "" );
+			example.html( exampleText );
+			lang = lang[1];
+		} else {
+			lang = "javascript";
+		}
+
+		if ( lang ) {
+
+			$this
+			.addClass( "sunlight-highlight-" + lang )
+			.addClass( "linenums" )
+			.html( example.html() );
+
+		}
+	} );
+
+	Sunlight.highlightAll( {
+		lineNumbers : true,
+		showMenu : true,
+		enableDoclinks : true
+	} );
+} );
+</script>
+
+
+
+<!--Navigation and Symbol Display-->
+
+
+<!--Google Analytics-->
+
+
+</body>
+</html>

@@ -31,19 +31,8 @@ QUnit.test('Schema Creation Test', function(assert) {
 	assert.ok(db.testTable.definition, 'db.testTable.definition is defined');
 	db.testTable.definition = null;
 	assert.ok(db.testTable.definition, 'db.testTable.definition cannot be set');
-	assert.ok(db.testTable.definition.primaryKey === 'id', 'testTable PK is set to `id`');
+	assert.ok(db.testTable.definition.pk === 'id', 'testTable PK is set to `id`');
 	assert.ok(db.testTable.definition.columns.id, 'testTable column `id` is defined.');
-	try {
-		db.alterTable('testTable', {columns: {pk: {type: Number}}, primaryKey: 'pk'});
-		assert.ok(true, 'alterTable() for testTable completes without exceptions');
-		assert.ok(db.testTable.definition.primaryKey === 'pk', 'testTable PK is now set to `pk`');
-		assert.ok(db.testTable.definition.columns.pk, 'testTable column `pk` is defined.');
-		assert.ok(db.testTable.definition.columns.pk.type === Number, 'testTable column `pk` is of type Number.');
-		assert.ok(db.testTable.definition.columns.id === undefined, 'testTable column `id` is NOT defined.');
-	}
-	catch(e) {
-		assert.ok(false, 'alterTable() for testTable completes without exceptions');
-	}
 	db.dropTable('testTable');
 	assert.ok(!db.testTable, 'testTable is dropped correctly');
 	db.dropTable('testTable');
@@ -53,16 +42,14 @@ QUnit.test('Schema Creation Test', function(assert) {
 QUnit.test('CRUD Test', function(assert) {
 	var records, db = new WebDB('crud');
 	db.createTable('testTable');
-	assert.ok(db.testTable.get().length === 0, 'new table `testTable` is empty');
+	assert.ok(db.testTable.length === 0, 'new table `testTable` is empty');
 	db.testTable.set({id: 1, version: null});
 	records = db.testTable.get();
 	assert.ok(records.length === 1, 'After inserting one record, testTable length === 1');
 	assert.ok(records[0].id === 1 && records[0].version === null, 'Record has correct data');
-	assert.ok(db.testTable.created.length === 1, 'testTable reflects that one record was created');
 	db.testTable.set({id:2, version:0}); // simulate update of persistent record
 	records = db.testTable.get();
 	assert.ok(records.length === 2, 'After inserting another record, testTable length === 2');
-	assert.ok(db.testTable.updated.length === 1, 'testTable reflects that persistent record was updated');
 	db.testTable.set({id:3}); 
 	records = db.testTable.get();
 	assert.ok(records.length === 3, 'After inserting yet another record, testTable length === 3');
@@ -74,24 +61,101 @@ QUnit.test('CRUD Test', function(assert) {
 	assert.ok(db.testTable.get().length === 0, 'After bulk-deleting 2 records, testTable length === 0');
 });
 QUnit.test('Criteria Test', function(assert) {
-	var records, db = new WebDB('criteria');
-	var cowboys = db.createTable('cowboys');
-	cowboys.set({id: 1, size:160, firstName:'Joe',     lastName:'Dalton' });
-	cowboys.set({id: 2, size:170, firstName:'Jack',    lastName:'Dalton' });
-	cowboys.set({id: 3, size:180, firstName:'William', lastName:'Dalton' });
-	cowboys.set({id: 4, size:190, firstName:'Averell', lastName:'Dalton' });
-	cowboys.set({id: 5, size:180, firstName:'Lucky',   lastName:'Luke'   });
-	cowboys.set({id: 6, size:170, firstName:'Billy',   lastName:'The Kid'});
+	var db = new WebDB('criteria');
+	var weapons = db.createTable('weapons', {
+		'id': {type: Number, pk:true}, 
+		'version': {type:Number, version:true},
+		'name': {type:String, length:32, unique:true}
+	}); 
+	assert.ok(weapons, 'Table `weapons` created ok');
+
+	var characters = db.createTable('characters', {
+		'id': {type: Number, pk:true}, 
+		'version': {type:Number, version:true},
+		'firstName': {type:String, length:32, index:true},
+		'lastName': {type:String, length:32, index:true},
+		'description': String, // shortcut for {type:String}
+		'weaponOfChoice': {type:Number, fk:'weapons'},
+	});
+	assert.ok(characters, 'Table `characters` created ok');
+
+	weapons.set([
+		{id:1, name:'Revolver'},
+		{id:2, name:'Shotgun'},
+		{id:3, name:'Mini revolver'},
+		{id:4, name:'Teeth'}
+	]);
+	assert.ok(weapons.length === 4, 'Table `weapons` populated ok');
+
+	characters.set([
+		{id:1,  firstName:'Lucky',    lastName:'Luke',   weaponOfChoice:1, description:'Shoots faster than his shadow'},
+		{id:2,  firstName:'Joe',      lastName:'Dalton', weaponOfChoice:1, description:'Leader of the Dalton brothers gang'},
+		{id:3,  firstName:'Jack',     lastName:'Dalton', weaponOfChoice:1, description:'Member of the Dalton brothers gang'},
+		{id:4,  firstName:'William',  lastName:'Dalton', weaponOfChoice:1, description:'Member of the Dalton brothers gang'},
+		{id:5,  firstName:'Averell',  lastName:'Dalton', weaponOfChoice:1, description:'Member of the Dalton brothers gang'},
+		{id:6,  firstName:'Billy',    lastName:'The Kid',weaponOfChoice:1, description:'Youngest outlaw of the west'},
+		{id:7,  firstName:'Buffalo',  lastName:'Bill',   weaponOfChoice:2, description:''},
+		{id:8,  firstName:'Calamity', lastName:'Jane',   weaponOfChoice:2, description:''},
+		{id:9,  firstName:'Pat',      lastName:'Poker',  weaponOfChoice:3, description:''},
+		{id:10, firstName:'Jesse',    lastName:'James',  weaponOfChoice:1, description:''},
+		{id:11, firstName:'Jolly',    lastName:'Jumper', weaponOfChoice:4, description:'The smartest horse in the world'},
+		{id:12, firstName:'Rantaplan',lastName:'?',      weaponOfChoice:4, description:'The dumbest dog in the universe'},
+	]);
+	assert.ok(characters.length === 12, 'Table `characters` populated ok');
+	var luckyLuke = characters.get(1);
+	assert.ok(luckyLuke[0].firstName === 'Lucky', 'Got Lucky Luke successfully');
 	
-	assert.ok(cowboys.get().length === 6, 'Table `cowboys` populated ok');
-	var daltons = cowboys.get({lastName: 'Dalton'});
+	var daltons = characters.get({lastName: 'Dalton'});
 	assert.ok(daltons.length === 4, 'Got Dalton brothers successfully');
-	var william = cowboys.get({firstName: 'William', lastName:'Dalton'})[0];
-	assert.ok(william.id === 3, 'Got William Dalton successfully');
-	var luckyHeight = cowboys.get({size:180});
-	assert.ok(luckyHeight.length === 2, 'Got 2 cowboys with size 180');
-	var averell = cowboys.get({id:4})[0];
-	averell.firstName = 'Averell `the Great`';
-	averell = cowboys.get({id:4})[0];
-	assert.ok(averell.firstName === 'Averell `the Great`', 'Modifications to objects are reflected immediately');
+	var william = characters.get({firstName: 'William', lastName:'Dalton'})[0];
+	assert.ok(william.id === 4, 'Got William Dalton successfully');
+	
+	var shotgun = characters.get({weaponOfChoice: 2});
+	assert.ok(shotgun.length === 2, 'Got 2 characters that prefer the shotgun');
+	
+	var shotgun = characters.get({weaponOfChoice: 2});
+	assert.ok(shotgun.length === 2, 'Got 2 characters that prefer the shotgun');
+	
+	var startsWithJ = characters.get({firstName:{$gte:'J', $lt:'K'}});
+	var msg = '';
+	for (var i=0, c; c=startsWithJ[i]; i++) {
+		if (i>0 && i<startsWithJ.length-1) {msg += ', ';}
+		if (i == startsWithJ.length-1) {msg += ' and ';}
+		msg += c.firstName + ' ' + c.lastName;
+	}
+	assert.ok(startsWithJ.length === 4, 'Got 4 characters with a first name starting with \'J\': ' + msg);
+});
+
+QUnit.test('Bulk Data Test', function(assert) {
+	var db = new WebDB('bulk'),
+		bulk = db.createTable('bulk'),
+		i, start, stop, elapsed, items;
+	start = window.performance ? window.performance.now() : Date.now();
+	for (i=0; i<2000; i++) {
+		bulk.set({id:i, name:'record'+i});
+	}
+	stop = window.performance ? window.performance.now() : Date.now();
+	elapsed = stop - start;
+	assert.ok(bulk.get().length === 2000, 'Inserted 2,000 single records in ' + elapsed + 'ms.');
+
+	start = window.performance ? window.performance.now() : Date.now();
+	for (i=0; i<2000; i++) {
+		items = bulk.get(i);
+		if (items.length != 1) {assert.ok(false, 'wrong data returned for key ' + i + ': ' + items);}
+	}
+	stop = window.performance ? window.performance.now() : Date.now();
+	elapsed = stop - start;
+	assert.ok(true, 'Retrieved 2,000 single records in ' + elapsed + 'ms.');
+	
+	start = window.performance ? window.performance.now() : Date.now();
+	items = bulk.get();
+	stop = window.performance ? window.performance.now() : Date.now();
+	elapsed = stop - start;
+	assert.ok(items.length === 2000, 'Retrieved 2,000 records in bulk in ' + elapsed + 'ms.');
+
+	start = window.performance ? window.performance.now() : Date.now();
+	bulk.del(items);
+	stop = window.performance ? window.performance.now() : Date.now();
+	elapsed = stop - start;
+	assert.ok(bulk.get().length === 0, 'Cleared bulk table of 2,000 items in ' + elapsed + 'ms.');
 });
