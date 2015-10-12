@@ -15,9 +15,12 @@ module.exports = function(grunt) {
 				options: {
 					src: '<%= pkg.main %>',
 					dest: '<%= pkg.dist.umd %>', 
-					template: 'umd-lite.hbs', 
+					template: 'umd-opt-picolog.hbs', 
 					objectToExport: '<%= pkg.exports[0] %>',
-					amdModuleId: '<%= pkg.name %>'
+					amdModuleId: '<%= pkg.name %>',
+					deps: {
+						'default': []
+					}
 				}
 			}
 		},
@@ -50,17 +53,16 @@ module.exports = function(grunt) {
 	grunt.registerTask('default', [
 		'jshint', 
 		'umd', 
-		'uglify'
 	]);
 	
 	grunt.registerTask('docs', [
 		'jsdoc'
 	]);
 	
-	grunt.registerTask('all', [
+	grunt.registerTask('release', [
 		'jshint', 
 		'umd', 
 		'uglify',
-		'jsdoc'
+//		'jsdoc'
 	]);
 }

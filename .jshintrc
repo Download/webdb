@@ -20,6 +20,8 @@
 	"globals": {
 		"define": false,
 		"require": false,
-		"module": false
+		"module": false,
+		"Promise": false,
+		"log": false
 	}
 }

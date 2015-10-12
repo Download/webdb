@@ -1,7 +1,10 @@
+log && log.info('Found optional dependency `picolog`. Logging is enabled.');
+
 function WebDB(name, options){
 	var DEFAULT_DB_OPTIONS = {
 		synch: false, // set this to true to allow the db to be synched to a remote counterpart
-		synchUrl: '/webdb/synch',
+		synchUrl: '/api/webdb/synch', // set this to the correct url on your server 
+		synchAuto: true, // After first manual synch it will auto-synch, unless you set this to false
 		synchThrottleMs: 3000, // minimum of time between synchs, in ms (default 3 sec.)
 		synchPollMs: 3600000 // minimum of time between polling synchs, in ms (default 1 hour)
 	};
@@ -21,16 +24,30 @@ function WebDB(name, options){
 	// ===== API =====
 
 	// name
-	Object.defineProperty(db, 'name', {value: name});
+	Object.defineProperty(db, 'name', {enumerable: false, value: name});
 
 	// options
-	Object.defineProperty(db, 'options', {get: function(){return mergeOptions({}, options); /* makes clone */}});
+	Object.defineProperty(db, 'options', {enumerable: false, get: function(){return mergeOptions({}, options); /* makes clone */}});
 
 	// synching
-	Object.defineProperty(db, 'synching', {get: function(){return synching;}});
+	Object.defineProperty(db, 'synching', {enumerable: false, get: function(){return synching;}});
+	
+	// lastSynched
+	Object.defineProperty(db, 'lastSynched', {enumerable: false, get: function(){return lastSynched;}});
+	
+	// synched
+	Object.defineProperty(db, 'synched', {enumerable: false, get: function(){
+		if (db.lastSynched.getTime() === 0) {return false;}
+		for (var table in db.tables) {if (! table.synched()) {return false;}}
+		return true;
+	}});
+	
+	// synchError
+	Object.defineProperty(db, 'synchError', {enumerable: false, get: function() {return synchError;}});
 
 	// createTable
 	Object.defineProperty(db, 'createTable', {
+		enumerable: false,
 		get: function() {return function (name, def) {
 			if (tables[name]) {
 				throw new Error('A table named `' + name + '` already exists. Use alterTable() to change it\'s definition, or dropTable() to remove it.');
@@ -45,13 +62,195 @@ function WebDB(name, options){
 		enumerable: false,
 		get: function() {return function dropTable(name) {
 			if (!tables[name]) {
-				if (window.console && console.warn) {console.warn('Call to dropTable() is ignored.', new Error('No table named `' + name + '` exists.'));}
+				log && log.warn('Call to dropTable() is ignored.', new Error('No table named `' + name + '` exists.'));
+				return;
 			}
 			delete db[name];
 			delete tables[name];
 			delete definitions[name];
 		};}
 	});
+	
+	Object.defineProperty(db, 'synch', {
+		enumerable: false,
+		get: function get_synch() {
+			return function synch(force) {
+				if (!auto && db.options.synchAuto) {auto = setInterval(synch, db.options.synchThrottleMs);}
+				if (synching) {return synching;}
+				synchError = false;
+				return synching = new Promise(function(resolve, reject) {
+					// if not forced synch and db looks synched and poll interval not expired, do nothing.
+					if (!force && db.synched && (Date.now() < db.lastSynched.getTime() + db.options.synchPollMs)) {
+						// postpone resolving until after synch method has returned.
+						return setTimeout(function(){
+							synching = false;
+							resolve();
+						},0);
+					}
+					
+					
+					reject();
+/*
+					// synching is needed
+					try {
+						log && log.info('Synching WebDB `' + db.name + '`...');
+						db.trigger('synch:started');
+						var changed = false;
+						var req = new SynchRequest();
+						req.criteria = cfg.filter || null;
+						req.createdItems.push.apply(req.createdItems, db.createdItems());
+						req.updatedItems.push.apply(req.updatedItems, db.updatedItems());
+						req.deletedItems.push.apply(req.deletedItems, db.deletedItems());
+						req.currentIds.push.apply(req.currentIds, Persistent.pluck(db.items(), 'id'));
+						req.currentVersions.push.apply(req.currentVersions, Persistent.pluck(db.items(), 'version'));
+						log && log.debug('SynchedDataStore `' + db.name + '` synching with remote datastore ' + cfg.remoteDataStore + '...');
+						cfg.remoteDataStore.synch(req).then(function(response) {
+							log && log.debug('SynchedDataStore `' + db.name + '` synched with remote datastore. Processing response ' + response + '...');
+
+							var i,id,idx,item;
+							
+							// handle deleted items
+							if (response.deletedIds.length) {
+								for (i=0; id=response.deletedIds[i]; i++) {
+									idx = Persistent.indexOf(db.items(), id);
+									if (idx !== -1) {
+										db.items().splice(idx, 1);
+										changed = true;
+									}
+									idx = Persistent.indexOf(db.deletedItems(), id);
+									if (idx !== -1) {db.deletedItems().splice(idx, 1);}
+								}
+								log && log.debug('Processed ' + response.deletedIds.length + ' deleted items.');
+							}
+		
+							// handle updated items
+							if (response.updatedItems.length) {
+								for (i=0; item=response.updatedItems[i]; i++) {
+									// if we have futureItems, try to merge the changes into the new version of the item
+									idx = Persistent.indexOf(db.futureItems(), item)
+									if (idx !== -1) {
+										// get future item and remove from list
+										var future = db.futureItems().splice(idx, 1)[0];
+										// replace updated item with version from server
+										idx = Persistent.indexOf(db.updatedItems(), item);
+										if (idx !== -1) {db.updatedItems().splice(idx, 1, item);}
+										else {db.updatedItems().push(item);}
+										// now merge changes from future item onto server item
+										var merged = Persistent.clone(item);
+										for (var key in future) {
+											if (key !== 'version') {
+												merged[key] = future[key]; 
+											}
+										}
+										// replace item with the merged version
+										idx = Persistent.indexOf(db.items(), item);
+										if (idx !== -1) {
+											db.items().splice(idx, 1, merged);
+										}
+									}
+									else {
+										// remove saved item from the updatedItems list
+										idx = Persistent.indexOf(db.updatedItems(), item);
+										if (idx !== -1) {db.updatedItems().splice(idx, 1);}
+										else {changed = true;}
+										// replace item with the saved version
+										idx = Persistent.indexOf(db.items(), item);
+										if (idx !== -1) {db.items().splice(idx, 1, item);}
+										else {db.items().push(item);}
+									}
+								}
+								if (response.updatedItems.length) {
+									log && log.debug('Processed ' + response.updatedItems.length + ' updated items.');
+								}
+							}
+		
+							// handle created items
+							if (response.createdItems.length) {
+								for (i=0; item=response.createdItems[i]; i++) {
+									idx = Persistent.indexOf(db.items(), item);
+									if (idx === -1) {
+										db.items().push(item);
+										changed = true;
+									}
+									else {db.items().splice(idx, 1, item);}
+								}
+								log && log.debug('Processed ' + response.createdItems.length + ' created items.');
+							}
+		
+							// handle stale items
+							if (response.staleItems.length) {
+								for (i=0; item=response.staleItems[i]; i++) {
+									idx = Persistent.indexOf(db.staleItems(), item);
+									if (idx === -1) {db.staleItems().push(item);}
+									else {db.staleItems().splice(idx, 1, item);}
+									idx = Persistent.indexOf(db.createdItems(), item);
+									if (idx !== -1) {db.createdItems().splice(idx, 1);}
+									idx = Persistent.indexOf(db.updatedItems(), item);
+									if (idx !== -1) {db.updatedItems().splice(idx, 1);}
+									idx = Persistent.indexOf(db.deletedItems(), item);
+									if (idx !== -1) {db.deletedItems().splice(idx, 1);}
+								}
+								log && log.debug('Processed ' + response.staleItems.length + ' stale items.');
+							}
+		
+							if (response.failedItems.length) {
+								// handle failed items
+								for (i=0; item=response.failedItems[i]; i++) {
+									idx = Persistent.indexOf(db.failedItems(), item);
+									if (idx === -1) {db.failedItems().push(item);}
+									else {db.failedItems().splice(idx, 1, item);}
+									if (Persistent.indexOf(db.createdItems(), item) !== -1) {
+										// created items is a virtual array, remove from items
+										idx = Persistent.indexOf(db.items(), item);
+										if (idx !== -1) {db.items().splice(idx, 1);}
+									}
+									idx = Persistent.indexOf(db.updatedItems(), item);
+									if (idx !== -1) {db.updatedItems().splice(idx, 1);}
+									idx = Persistent.indexOf(db.deletedItems(), item);
+									if (idx !== -1) {db.deletedItems().splice(idx, 1);}
+								}
+								log && log.debug('Processed ' + response.failedItems.length + ' failed items.');
+							}
+		
+							db.lastSynched(new Date());
+							db.synching = false;
+							log && log.debug('SynchedDataStore `' + db.name + '` synched.');
+							if (changed) {
+								log && log.debug('SynchedDataStore `' + db.name + '` changed. Triggering change...');
+								db.trigger('change');
+							} 
+							log && log.debug('SynchedDataStore `' + db.name + '` triggering success....');
+							db.trigger('synch:success');
+							resolve();
+							log && log.debug('SynchedDataStore `' + db.name + '` triggering done....');
+							db.trigger('synch:done');
+							log && log.debug('SynchedDataStore `' + db.name + '` synch done.');
+						}).catch(function(e){
+							log && log.debug('SynchedDataStore `' + db.name + '` synch error:' + e);
+							db.synching = false;
+							db.synchError = e;
+							db.trigger('synch:failed');
+							reject(e);
+							db.trigger('synch:done');
+						});
+					}
+					catch(e) {
+						log && log.debug('SynchedDataStore `' + db.name + '` synch error:' + e);
+						db.synching = false;
+						db.synchError = e;
+						db.trigger('synch:failed');
+						reject(e);
+						db.trigger('synch:done');
+					}
+*/
+				});
+				
+				
+				
+			};
+		}
+	});
+
 
 	// Table
 	function Table(name, meta) {
@@ -69,6 +268,12 @@ function WebDB(name, options){
 		// length
 		Object.defineProperty(me, 'length', {enumerable:true, get: function(){return items.keyCount();}});
 
+		// synched
+		Object.defineProperty(me, 'synched', {enumerable:true, get: function(){
+			return (!me.created || // synch not supported, so consider it synched
+					(! (me.created.length || me.updated.length || me.deleted.length)));
+		}});
+		
 		// get
 		Object.defineProperty(me, 'get', {
 			get: function(){return function Table_get(criteria, callback){
@@ -98,6 +303,147 @@ function WebDB(name, options){
 				return callback ? new Promise(function (resolve){resolve(del.apply(me, arguments));}) : del.apply(me, arguments);
 			};}
 		});
+
+
+
+
+
+/*
+		// synch
+		Object.defineProperty(me, 'synch', {
+			get: function(){return function Table_synch(){
+				var req = new SynchRequestTable();
+						req.criteria = cfg.filter || null;
+						req.createdItems.push.apply(req.createdItems, db.createdItems());
+						req.updatedItems.push.apply(req.updatedItems, db.updatedItems());
+						req.deletedItems.push.apply(req.deletedItems, db.deletedItems());
+						req.currentIds.push.apply(req.currentIds, Persistent.pluck(db.items(), 'id'));
+						req.currentVersions.push.apply(req.currentVersions, Persistent.pluck(db.items(), 'version'));
+						log && log().log('SynchedDataStore `' + db.name + '` synching with remote datastore ' + cfg.remoteDataStore + '...');
+						cfg.remoteDataStore.synch(req).then(function(response) {
+							log && log().log('SynchedDataStore `' + db.name + '` synched with remote datastore. Processing response ' + response + '...');
+
+							var i,id,idx,item;
+							
+							// handle deleted items
+							if (response.deletedIds.length) {
+								for (i=0; id=response.deletedIds[i]; i++) {
+									idx = Persistent.indexOf(db.items(), id);
+									if (idx !== -1) {
+										db.items().splice(idx, 1);
+										changed = true;
+									}
+									idx = Persistent.indexOf(db.deletedItems(), id);
+									if (idx !== -1) {db.deletedItems().splice(idx, 1);}
+								}
+								log().log('Processed ' + response.deletedIds.length + ' deleted items.');
+							}
+		
+							// handle updated items
+							if (response.updatedItems.length) {
+								for (i=0; item=response.updatedItems[i]; i++) {
+									// if we have futureItems, try to merge the changes into the new version of the item
+									idx = Persistent.indexOf(db.futureItems(), item)
+									if (idx !== -1) {
+										// get future item and remove from list
+										var future = db.futureItems().splice(idx, 1)[0];
+										// replace updated item with version from server
+										idx = Persistent.indexOf(db.updatedItems(), item);
+										if (idx !== -1) {db.updatedItems().splice(idx, 1, item);}
+										else {db.updatedItems().push(item);}
+										// now merge changes from future item onto server item
+										var merged = Persistent.clone(item);
+										for (var key in future) {
+											if (key !== 'version') {
+												merged[key] = future[key]; 
+											}
+										}
+										// replace item with the merged version
+										idx = Persistent.indexOf(db.items(), item);
+										if (idx !== -1) {
+											db.items().splice(idx, 1, merged);
+										}
+									}
+									else {
+										// remove saved item from the updatedItems list
+										idx = Persistent.indexOf(db.updatedItems(), item);
+										if (idx !== -1) {db.updatedItems().splice(idx, 1);}
+										else {changed = true;}
+										// replace item with the saved version
+										idx = Persistent.indexOf(db.items(), item);
+										if (idx !== -1) {db.items().splice(idx, 1, item);}
+										else {db.items().push(item);}
+									}
+								}
+								if (response.updatedItems.length) {
+									log().log('Processed ' + response.updatedItems.length + ' updated items.');
+								}
+							}
+		
+							// handle created items
+							if (response.createdItems.length) {
+								for (i=0; item=response.createdItems[i]; i++) {
+									idx = Persistent.indexOf(db.items(), item);
+									if (idx === -1) {
+										db.items().push(item);
+										changed = true;
+									}
+									else {db.items().splice(idx, 1, item);}
+								}
+								log().log('Processed ' + response.createdItems.length + ' created items.');
+							}
+		
+							// handle stale items
+							if (response.staleItems.length) {
+								for (i=0; item=response.staleItems[i]; i++) {
+									idx = Persistent.indexOf(db.staleItems(), item);
+									if (idx === -1) {db.staleItems().push(item);}
+									else {db.staleItems().splice(idx, 1, item);}
+									idx = Persistent.indexOf(db.createdItems(), item);
+									if (idx !== -1) {db.createdItems().splice(idx, 1);}
+									idx = Persistent.indexOf(db.updatedItems(), item);
+									if (idx !== -1) {db.updatedItems().splice(idx, 1);}
+									idx = Persistent.indexOf(db.deletedItems(), item);
+									if (idx !== -1) {db.deletedItems().splice(idx, 1);}
+								}
+								log().log('Processed ' + response.staleItems.length + ' stale items.');
+							}
+		
+							if (response.failedItems.length) {
+								// handle failed items
+								for (i=0; item=response.failedItems[i]; i++) {
+									idx = Persistent.indexOf(db.failedItems(), item);
+									if (idx === -1) {db.failedItems().push(item);}
+									else {db.failedItems().splice(idx, 1, item);}
+									if (Persistent.indexOf(db.createdItems(), item) !== -1) {
+										// created items is a virtual array, remove from items
+										idx = Persistent.indexOf(db.items(), item);
+										if (idx !== -1) {db.items().splice(idx, 1);}
+									}
+									idx = Persistent.indexOf(db.updatedItems(), item);
+									if (idx !== -1) {db.updatedItems().splice(idx, 1);}
+									idx = Persistent.indexOf(db.deletedItems(), item);
+									if (idx !== -1) {db.deletedItems().splice(idx, 1);}
+								}
+								log().log('Processed ' + response.failedItems.length + ' failed items.');
+							}
+
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			};}
+		});
+*/
 
 		// only for regular tables, not for meta tables
 		if (!meta) {
@@ -321,7 +667,7 @@ function WebDB(name, options){
 					// if item was in updated list, remove it
 					idx = indexOf(updated, item);
 					if (idx !== -1) {
-						removed = updated.splice(idx, 1);
+						removed = updated.splice(idx, 1)[0];
 						backup = backup || removed;
 					}
 					// if item was in future list, remove it
@@ -346,6 +692,15 @@ function WebDB(name, options){
 	Table.fromJSON = function fromJSON(/* value */) {
 	};
 
+/*
+	function SynchRequestTable(obj) {
+		this.currentIds = (obj && obj.currentIds) || [];
+		this.currentVersions = (obj && obj.currentVersions) || [];
+		this.created = (obj && obj.created) || [];
+		this.updated = (obj && obj.updated) || [];
+		this.deleted = (obj && obj.deleted) || [];
+	}
+*/
 
 	// private variables for WebDB
 	var 
@@ -378,7 +733,10 @@ function WebDB(name, options){
 	},
 	tables = {},
 	definitions = {},
-	synching = false;
+	synching = false,
+	lastSynched = new Date(0),
+	synchError = null,
+	auto = false;
 
 
 	// ===== INITIALIZATION =====
@@ -411,11 +769,11 @@ function WebDB(name, options){
 		for (var col in def.columns) {
 			if (typeof def.columns[col] == 'function') {def.columns[col] = {type: def.columns[col]};}
 			if (def.columns[col].pk) {
-				if (def.pk) {throw {message: 'Multiple primary key columns found in table definition: `' + def.pk + '` and `' + col + '`.', columns:[def.pk, col]};}
+				if (def.pk) {throw new Error('Multiple primary key columns found in table definition: `' + def.pk + '` and `' + col + '`.');}
 				def.pk = col;
 			}
 		}
-		if (!def.pk) {throw {message: 'No primary key column found in table definition.'};}
+		if (!def.pk) {throw new Error('No primary key column found in table definition.');}
 		return def;
 	}
 
@@ -428,6 +786,8 @@ function WebDB(name, options){
 			value: tables[name] = new Table(name, meta)
 		});
 	}
+	
+	log && log.debug('Created WebDB named `' + db.name + '`' + options.synch ? ', synched to ' + options.synchUrl : '.');
 }
 
 // ===== 'GLOBAL' PRIVATE VARIABLES =====
@@ -558,16 +918,8 @@ var Index = WebDB.Index = (function(){
 		while (true) {
 			// Same key: no change in the tree structure
 			if (this.tree.compare(current.key, key) === 0) {
-				if (this.tree.unique) {
-					throw {
-						message: 'Can\'t insert key ' + key + ', it violates the unique constraint.', 
-						key: key, 
-						errorType: 'uniqueViolated'
-					};
-				} 
-				else {
-					current.data.push(value);
-				}
+				if (this.tree.unique) {throw new Error('Can\'t insert key ' + key + ', it violates the unique constraint.');} 
+				current.data.push(value);
 				return this;
 			}
 
@@ -600,14 +952,7 @@ var Index = WebDB.Index = (function(){
 	 */
 	Node.prototype.update = function Node_update(key, value) {
 		// Handle empty tree
-		if (!this.hasOwnProperty('key')) {
-			throw {
-				message: 'Can\'t update value [' + value + '] for key [' + key + ']. Key is not present.', 
-				key: key, 
-				value: value,
-				errorType: 'doesNotExist'
-			};
-		}
+		if (!this.hasOwnProperty('key')) {throw new Error('Can\'t update value [' + value + '] for key [' + key + ']. Key does not exist.');}
 		// Find node to update
 		var current = this;
 		while (true) {
@@ -615,43 +960,19 @@ var Index = WebDB.Index = (function(){
 			if (this.tree.compare(current.key, key) === 0) {
 				var idx = -1;
 				for (var i=0,val; val=current.data[i]; i++) {
-					if (this.tree.equals(val, value)) {
-						idx = i;
-						break;
-					}
+					if (this.tree.equals(val, value)) {idx = i; break;}
 				}
-				if (idx == -1) {
-					throw {
-						message: 'Can\'t update value [' + value + '] for key [' + key + ']. Value is not present.', 
-						key: key, 
-						value: value,
-						errorType: 'doesNotExist'
-					};
-				}
+				if (idx == -1) {throw new Error('Can\'t update value [' + value + '] for key [' + key + ']. Value is not present.');}
 				current.data.splice(idx, 1, value);
 				return this;
 			}
 
 			if (this.tree.compare(key, current.key) < 0) {
-				if (!current.left) {
-					throw {
-						message: 'Can\'t update value [' + value + '] for key [' + key + ']. Key is not present.', 
-						key: key, 
-						value: value,
-						errorType: 'doesNotExist'
-					};
-				}
+				if (!current.left) {throw new Error('Can\'t update value [' + value + '] for key [' + key + ']. Key does not exist.');}
 				current = current.left;
 			} 
 			else {
-				if (!current.right) {
-					throw {
-						message: 'Can\'t update value [' + value + '] for key [' + key + ']. Key is not present.', 
-						key: key, 
-						value: value,
-						errorType: 'doesNotExist'
-					};
-				}
+				if (!current.right) {throw new Error('Can\'t update value [' + value + '] for key [' + key + ']. Key is not present.');}
 				current = current.right;
 			}
 		}

@@ -1,10 +1,11 @@
 require.config({
 	baseUrl: '../dist',
 	paths: {
+		'picolog': '../node_modules/picolog/dist/picolog.min',
 		'webdb': './webdb.umd',
 	}
 });
-define(['webdb'], function(WebDB){
+define(['picolog', 'webdb'], function(log, WebDB){
 	QUnit.test("AMD Module Compliance Test", function( assert ) {
 		assert.ok(WebDB !== undefined, 'WebDB is defined');
 		assert.ok(typeof WebDB === 'function', 'WebDB is a function');

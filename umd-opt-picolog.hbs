@@ -1,0 +1,11 @@
+(function (u, m, d) {
+	var picolog;
+	if (typeof define == 'function' && define.amd) {define('{{amdModuleId}}', require.defined('picolog') ? ['picolog'] : [], d);}
+	else if (typeof exports == 'object') {try {require.resolve('picolog'); picolog=require('picolog');} catch(e){} module.exports = d(picolog);}
+	else {if (u.log && log.info) {picolog = log;} u[m] = d(picolog);}
+}(this, '{{objectToExport}}', function(log) {'use strict';
+
+{{{code}}}
+
+return {{objectToExport}};
+}));
