@@ -1,4 +1,4 @@
-# WebDB <sup><sub>v0.4.0</sub></sup>
+# WebDB <sup><sub>v0.4.1</sub></sup>
 **If the client can't get to the database, we bring the database to the client.**
 [project website](https://download.github.io/webdb)
 
@@ -9,14 +9,14 @@ It can be used directly from CDN, through a regular download, or installed with 
 ### CDN
 This is the easiest way to use WebDB:
 ```xml
-<script src="https://cdn.rawgit.com/download/webdb/0.4.0/dist/webdb.min.js"></script>
+<script src="https://cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min.js"></script>
 ```
 
 ### Download
 If you'd rather host the file on your own server, or use the debug version:
-* [webdb.min.js](https://cdn.rawgit.com/download/webdb/0.4.0/dist/webdb.min.js) (~4kB gzipped+minified, ~12kB minified)
-* [webdb.umd.js](https://cdn.rawgit.com/download/webdb/0.4.0/dist/webdb.umd.js) (~30kB commented)
-* [webdb.min.js.map](https://cdn.rawgit.com/download/webdb/0.4.0/dist/webdb.min.js.map) (~17kB debug info)
+* [webdb.min.js](https://cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min.js) (~4kB gzipped+minified, ~12kB minified)
+* [webdb.umd.js](https://cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.umd.js) (~30kB commented)
+* [webdb.min.js.map](https://cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min.js.map) (~17kB debug info)
 
 ### NPM
 ```sh
@@ -30,7 +30,7 @@ through an AMD script loader such as RequireJS, or through a CommonJS loader.
 ### Script tag
 Plain and simple:
 ```xml
-<script src="//cdn.rawgit.com/download/webdb/0.4.0/dist/webdb.min.js"></script>
+<script src="//cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min.js"></script>
 ```
 
 ### AMD loader
@@ -44,7 +44,7 @@ If you want to load the script from CDN, configure like so:
 ```js
 require.config({
 	paths: {
-		'webdb': '//cdn.rawgit.com/download/webdb/0.4.0/dist/webdb.min',
+		'webdb': '//cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min',
 	}
 });
 ```

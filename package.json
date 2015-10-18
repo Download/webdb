@@ -1,6 +1,6 @@
 {
   "name": "webdb",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Client-side database that can be synched with a remote server.",
   "main": "src/webdb.js",
   "dist": {
