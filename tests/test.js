@@ -1,4 +1,4 @@
-QUnit.test('Schema Creation Test', function(assert) {
+QUnit.test('Schema Test', function(assert) {
 	assert.ok(typeof WebDB === 'function', 'WebDB is defined and is a function');
 	var db = new WebDB('schema');
 	assert.ok(db, 'DB created with WebDB() is defined');
@@ -31,8 +31,11 @@ QUnit.test('Schema Creation Test', function(assert) {
 	assert.ok(db.testTable.definition, 'db.testTable.definition is defined');
 	db.testTable.definition = null;
 	assert.ok(db.testTable.definition, 'db.testTable.definition cannot be set');
-	assert.ok(db.testTable.definition.pk === 'id', 'testTable PK is set to `id`');
 	assert.ok(db.testTable.definition.columns.id, 'testTable column `id` is defined.');
+	// get PK column for 'testTable'
+	var pk = db.columns.get({table:'testTable', pk:true})[0];
+	assert.ok(pk !== undefined, 'Found primary key colum for `testTable` using meta tables.');
+	
 	db.dropTable('testTable');
 	assert.ok(!db.testTable, 'testTable is dropped correctly');
 	db.dropTable('testTable');
@@ -158,4 +161,46 @@ QUnit.test('Bulk Data Test', function(assert) {
 	stop = window.performance ? window.performance.now() : Date.now();
 	elapsed = stop - start;
 	assert.ok(bulk.get().length === 0, 'Cleared bulk table of 2,000 items in ' + elapsed + 'ms.');
+});
+
+QUnit.test('Synchronization Test', function(assert) {
+	var db = WebDB('synched', {synch:true, synchUrl:'/api/webdb/synch'});
+	db.createTable('roles', {
+		id: {type:Number, pk:true},
+		version: {type:Number, version:true},
+		name: {type:String, unique:true},
+		description: String
+	});
+	db.createTable('brands', {
+		id: {type:Number, pk:true},
+		version: {type:Number, version:true},
+		name: {type:String, unique:true},
+		createdOn: {type:Date, index:true},
+		updatedOn: {type:Date, index:true}
+	});
+	assert.ok(!db.synched, 'Db looks unsynched.');
+
+	var done = assert.async();
+	db.synch().then(function ok(){
+		log.info('Synch succeeded!');
+		assert.ok(db.synched, 'Db looks synched again.');
+		var pk = db.columns.get({table:'roles', pk:true})
+		assert.ok(pk, 'Primary key for `brands` found using meta tables.');
+		var allRoles = db.roles.get();
+		assert.ok(allRoles.length === 9, 'Got 9 roles after synch');
+		var guestRole = db.roles.get({name:'Guest'})[0];
+		var userRole = db.roles.get({name:'User'})[0];
+		assert.ok(guestRole, 'Found `Guest` role');
+		assert.ok(userRole, 'Found `User` role');
+		assert.ok(guestRole.id === 1, '`Guest` role has id 1');
+		assert.ok(userRole.id === 2, '`User` role has id 2');
+		done();
+	}).catch(function fail(e){
+		log.error('Synch failed.', e);
+		assert.ok(false, 'Synch failed.');
+		done();
+	});
+
+//	db.brands.set({id:1, version:null, name: 'My Brand', createdOn:new Date(), updatedOn:null});
+
 });

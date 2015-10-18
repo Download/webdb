@@ -1,7 +1,7 @@
 {
   "name": "webdb",
-  "version": "0.3.1",
-  "description": "Database on top of localStorage that is synched between client and server.",
+  "version": "0.4.0",
+  "description": "Client-side database that can be synched with a remote server.",
   "main": "src/webdb.js",
   "dist": {
     "umd": "dist/webdb.umd.js",
