@@ -32,7 +32,7 @@
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
         <h1>
-<a id="webdb-v030" class="anchor" href="#webdb-v030" aria-hidden="true"><span class="octicon octicon-link"></span></a>WebDB <sup><sub>v0.3.0</sub></sup>
+<a id="webdb-v041" class="anchor" href="#webdb-v041" aria-hidden="true"><span class="octicon octicon-link"></span></a>WebDB <sup><sub>v0.4.1</sub></sup>
 </h1>
 
 <p><strong>If the client can't get to the database, we bring the database to the client.</strong></p>
@@ -48,7 +48,7 @@ It can be used directly from CDN, through a regular download, or installed with 
 
 <p>This is the easiest way to use WebDB:</p>
 
-<div class="highlight highlight-text-xml"><pre>&lt;<span class="pl-ent">script</span> <span class="pl-e">src</span>=<span class="pl-s"><span class="pl-pds">"</span>https://cdn.rawgit.com/download/webdb/0.3.0/dist/webdb.min.js<span class="pl-pds">"</span></span>&gt;&lt;/<span class="pl-ent">script</span>&gt;</pre></div>
+<div class="highlight highlight-text-xml"><pre>&lt;<span class="pl-ent">script</span> <span class="pl-e">src</span>=<span class="pl-s"><span class="pl-pds">"</span>https://cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min.js<span class="pl-pds">"</span></span>&gt;&lt;/<span class="pl-ent">script</span>&gt;</pre></div>
 
 <h3>
 <a id="download" class="anchor" href="#download" aria-hidden="true"><span class="octicon octicon-link"></span></a>Download</h3>
@@ -57,19 +57,17 @@ It can be used directly from CDN, through a regular download, or installed with 
 
 <ul>
 <li>
-<a href="https://cdn.rawgit.com/download/webdb/0.3.0/dist/webdb.min.js">webdb.min.js</a> (~4kB gzipped+minified, ~12kB minified)</li>
+<a href="https://cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min.js">webdb.min.js</a> (~4kB gzipped+minified, ~12kB minified)</li>
 <li>
-<a href="https://cdn.rawgit.com/download/webdb/0.3.0/dist/webdb.umd.js">webdb.umd.js</a> (~30kB commented)</li>
+<a href="https://cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.umd.js">webdb.umd.js</a> (~30kB commented)</li>
 <li>
-<a href="https://cdn.rawgit.com/download/webdb/0.3.0/dist/webdb.min.js.map">webdb.min.js.map</a> (~17kB debug info)</li>
+<a href="https://cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min.js.map">webdb.min.js.map</a> (~17kB debug info)</li>
 </ul>
 
 <h3>
 <a id="npm" class="anchor" href="#npm" aria-hidden="true"><span class="octicon octicon-link"></span></a>NPM</h3>
 
-<p>'''sh
-npm install webdb
-'''</p>
+<div class="highlight highlight-source-shell"><pre>npm install webdb</pre></div>
 
 <h2>
 <a id="include-webdb-on-your-page" class="anchor" href="#include-webdb-on-your-page" aria-hidden="true"><span class="octicon octicon-link"></span></a>Include WebDB on your page</h2>
@@ -82,7 +80,7 @@ through an AMD script loader such as RequireJS, or through a CommonJS loader.</p
 
 <p>Plain and simple:</p>
 
-<div class="highlight highlight-text-xml"><pre>&lt;<span class="pl-ent">script</span> <span class="pl-e">src</span>=<span class="pl-s"><span class="pl-pds">"</span>//cdn.rawgit.com/download/webdb/0.3.0/dist/webdb.min.js<span class="pl-pds">"</span></span>&gt;&lt;/<span class="pl-ent">script</span>&gt;</pre></div>
+<div class="highlight highlight-text-xml"><pre>&lt;<span class="pl-ent">script</span> <span class="pl-e">src</span>=<span class="pl-s"><span class="pl-pds">"</span>//cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min.js<span class="pl-pds">"</span></span>&gt;&lt;/<span class="pl-ent">script</span>&gt;</pre></div>
 
 <h3>
 <a id="amd-loader" class="anchor" href="#amd-loader" aria-hidden="true"><span class="octicon octicon-link"></span></a>AMD loader</h3>
@@ -95,7 +93,7 @@ through an AMD script loader such as RequireJS, or through a CommonJS loader.</p
 
 <div class="highlight highlight-source-js"><pre><span class="pl-c1">require</span>.config({
     paths<span class="pl-k">:</span> {
-        <span class="pl-s"><span class="pl-pds">'</span>webdb<span class="pl-pds">'</span></span><span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>//cdn.rawgit.com/download/webdb/0.3.0/dist/webdb.min<span class="pl-pds">'</span></span>,
+        <span class="pl-s"><span class="pl-pds">'</span>webdb<span class="pl-pds">'</span></span><span class="pl-k">:</span> <span class="pl-s"><span class="pl-pds">'</span>//cdn.rawgit.com/download/webdb/0.4.1/dist/webdb.min<span class="pl-pds">'</span></span>,
     }
 });</pre></div>
 
@@ -139,7 +137,7 @@ through an AMD script loader such as RequireJS, or through a CommonJS loader.</p
     <span class="pl-s"><span class="pl-pds">'</span>firstName<span class="pl-pds">'</span></span><span class="pl-k">:</span> {type<span class="pl-k">:</span><span class="pl-c1">String</span>, length<span class="pl-k">:</span><span class="pl-c1">32</span>, index<span class="pl-k">:</span><span class="pl-c1">true</span>},
     <span class="pl-s"><span class="pl-pds">'</span>lastName<span class="pl-pds">'</span></span><span class="pl-k">:</span> {type<span class="pl-k">:</span><span class="pl-c1">String</span>, length<span class="pl-k">:</span><span class="pl-c1">32</span>, index<span class="pl-k">:</span><span class="pl-c1">true</span>},
     <span class="pl-s"><span class="pl-pds">'</span>description<span class="pl-pds">'</span></span><span class="pl-k">:</span> <span class="pl-c1">String</span>, <span class="pl-c">// shortcut for {type:String}</span>
-    <span class="pl-s"><span class="pl-pds">'</span>weaponOfChoice<span class="pl-pds">'</span></span><span class="pl-k">:</span> {type<span class="pl-k">:</span><span class="pl-c1">Number</span>, fk<span class="pl-k">:</span>{weapons<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">'</span>id<span class="pl-pds">'</span></span>}},
+    <span class="pl-s"><span class="pl-pds">'</span>weaponOfChoice<span class="pl-pds">'</span></span><span class="pl-k">:</span> {type<span class="pl-k">:</span><span class="pl-c1">Number</span>, fk<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">'</span>weapons<span class="pl-pds">'</span></span>}},
 });</pre></div>
 
 <p>If no table definition is given, the table gets two columns, <code>id</code> and <code>version</code>, 
@@ -228,7 +226,7 @@ you need an Ajax call.</p>
 
 <p>Get amount of records in resultset:</p>
 
-<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> daltons characters.get({lastName<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">'</span>Dalton<span class="pl-pds">'</span></span>}); 
+<div class="highlight highlight-source-js"><pre><span class="pl-k">var</span> daltons <span class="pl-k">=</span> characters.get({lastName<span class="pl-k">:</span><span class="pl-s"><span class="pl-pds">'</span>Dalton<span class="pl-pds">'</span></span>}); 
 <span class="pl-k">var</span> daltonCount <span class="pl-k">=</span> daltons.<span class="pl-c1">length</span>; <span class="pl-c">// 4;</span></pre></div>
 
 <p>Delete a single record:</p>
@@ -277,6 +275,18 @@ database and handles synch messages.</p>
 
 <p>WebDB is currently under heavy development and not ready for production just yet. 
 Use at your own risk!</p>
+
+<h3>
+<a id="roadmap" class="anchor" href="#roadmap" aria-hidden="true"><span class="octicon octicon-link"></span></a>Roadmap</h3>
+
+<p>These features are currently planned to be implemented in WebDB:</p>
+
+<ul>
+<li><a href="https://github.com/Download/webdb/issues/1">Support synching to remote server</a></li>
+<li><a href="https://github.com/Download/webdb/issues/2">Support custom entity types</a></li>
+<li><a href="https://github.com/Download/webdb/issues/4">Support local persistance</a></li>
+<li><a href="https://github.com/Download/webdb/issues/3">Support advanced queries</a></li>
+</ul>
 
 <h2>
 <a id="copyright" class="anchor" href="#copyright" aria-hidden="true"><span class="octicon octicon-link"></span></a>Copyright</h2>
