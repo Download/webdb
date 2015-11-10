@@ -1,8 +1,8 @@
 (function (u, m, d) {
 	var picolog;
-	if (typeof define == 'function' && define.amd) {define('{{amdModuleId}}', require.defined('picolog') ? ['picolog'] : [], d);}
+	if (typeof define == 'function' && define.amd) {define('{{amdModuleId}}', require.defined('picolog') ? ['picolog'] : [], u.log && u.log.INFO ? function(){return d(log);} : d);}
 	else if (typeof exports == 'object') {try {require.resolve('picolog'); picolog=require('picolog');} catch(e){} module.exports = d(picolog);}
-	else {if (u.log && log.info) {picolog = log;} u[m] = d(picolog);}
+	else {u[m] = d(u.log && u.log.INFO && u.log);}
 }(this, '{{objectToExport}}', function(log) {'use strict';
 
 {{{code}}}

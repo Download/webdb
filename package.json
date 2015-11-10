@@ -1,6 +1,6 @@
 {
   "name": "webdb",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Client-side database that can be synched with a remote server.",
   "main": "src/webdb.js",
   "dist": {
@@ -48,6 +48,5 @@
     "load-grunt-tasks": "~3.3.0"
   },
   "dependencies": {
-    "picolog": "^0.4.0"
   }
 }

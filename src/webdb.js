@@ -5,11 +5,11 @@ function WebDB(name, options){
 		synch: false, // set this to true to allow the db to be synched to a remote counterpart
 		synchUrl: '/api/webdb/synch', // set this to the correct url on your server 
 		synchAuto: true, // After first manual synch it will auto-synch, unless you set this to false
-		synchThrottleMs: 120000, // minimum time between synchs, in ms (default 3 sec.)
+		synchThrottleMs: 60000, // minimum time between synchs, in ms (default 1 minute)
 		synchPollMs: 3600000, // minimum time between polling synchs, in ms (default 1 hour)
-		synchTimeout: 5000, // max time the request may take to complete before it is cancelled, in ms.
-		synchRetryCount: 1, // how many times to retry failed requests
-		synchRetryWait: 2000 // time to wait before retrying, in ms.
+		synchTimeout: 10000, // max time the request may take to complete before it is cancelled, in ms.
+		synchRetryCount: 2, // how many times to retry failed requests
+		synchRetryWait: 5000 // time to wait before retrying, in ms.
 	};
 
 	// make sure name is assigned
@@ -41,7 +41,7 @@ function WebDB(name, options){
 	// synched
 	Object.defineProperty(db, 'synched', {enumerable: false, get: function(){
 		if (db.lastSynched.getTime() === 0) {return false;}
-		for (var table in tables) {if (table.synched === false) {return false;}}
+		for (var name in tables) {if (tables[name].synched === false) {return false;}}
 		return true;
 	}});
 
@@ -56,11 +56,12 @@ function WebDB(name, options){
 	// createTable
 	Object.defineProperty(db, 'createTable', {
 		enumerable: false,
-		get: function() {return function (name, def) {
+		get: function() {return function (entityType, name, def) {
+			if (typeof entityType == 'string') {def=name; name=entityType; entityType=undefined;}
 			if (tables[name]) {
 				throw new Error('A table named `' + name + '` already exists. Use alterTable() to change it\'s definition, or dropTable() to remove it.');
 			}
-			createTable(name, def);
+			createTable(entityType, name, def, false);
 			return tables[name];
 		};}
 	});
@@ -91,12 +92,17 @@ function WebDB(name, options){
 			// return the promise that does the actual work
 			return synching = new Promise(function(resolve, reject) {
 				// if not forced synch, and db is synched and up-to-date, resolve right away.
-				if (!force && db.synched && db.upToDate) {resolve();}
+				if (!force && db.synched && db.upToDate) {
+					setTimeout(function(){
+						synching = false; 
+						resolve();
+					}, 0);
+					return;
+				}
 
 				// synching is needed
 				try {
-					log && log.info('Synching WebDB `' + db.name + '`...');
-//						db.trigger('synch:started');
+//					db.trigger('synch:started');
 					var synchRequest = new SynchRequest();
 					synchRemote(synchRequest).then(
 						function ok(synchResponse){
@@ -117,16 +123,16 @@ function WebDB(name, options){
 						}, 
 						function fail(e){
 							log && log.warn('WebDB `' + db.name + '` failed to synch with remote server.', e);
-							synching = false;
 							synchError = e;
+							synching = false;
 //							db.trigger('synch:failed');
 							reject(e);
 //							db.trigger('synch:done');
 						}
 					).catch(function err(e){
 						log && log.error('WebDB `' + db.name + '` failed to process synch response from remote server.', e);
-						synching = false;
 						synchError = e;
+						synching = false;
 //						db.trigger('synch:failed');
 						reject(e);
 //						db.trigger('synch:done');
@@ -134,8 +140,8 @@ function WebDB(name, options){
 				}
 				catch(e) { 
 					log && log.error('WebDB `' + db.name + '` had an error during synching.', e);
-					synching = false;
 					synchError = e;
+					synching = false;
 //					db.trigger('synch:failed');
 					reject(e);
 //					db.trigger('synch:done');
@@ -169,20 +175,15 @@ function WebDB(name, options){
 		
 		// get
 		Object.defineProperty(me, 'get', {
-			get: function(){return function Table_get(criteria, callback){
-				if (typeof criteria == 'function') {callback=criteria; criteria=null;}
-				return callback ? new Promise(function(resolve){resolve(get(criteria));}) : get(criteria);
+			get: function(){return function Table_get(criteria){
+				return get(criteria);
 			};}
 		});
 		
 		// set
 		Object.defineProperty(me, 'set', {
-			get: function(){return function Table_set(){
-				var callback;
-				if (typeof arguments[arguments.length-1] == 'function') {
-					callback = arguments[--arguments.length];
-				}
-				return callback ? new Promise(function (resolve){resolve(set.apply(me, arguments));}) : set.apply(me, arguments);
+			get: function(){return function Table_set(items){
+				return set(items);
 			};}
 		});
 
@@ -202,13 +203,17 @@ function WebDB(name, options){
 			// synch
 			Object.defineProperty(me, 'createSynchRequest', {
 				get: function(){return function createSynchRequest() {
-					var req = {ids:[], versions:[], created:[], updated:[], deleted:[]};
-					req.created.push.apply(req.created, me.created);
-					req.updated.push.apply(req.updated, me.updated);
-					req.deleted.push.apply(req.deleted, me.deleted);
+					var i, item, col, cols = [];
+					for (col in me.definition.columns) {cols.push(col);}
+					var req = {columns:cols,  ids:[], versions:[], created:[], updated:[], deleted:[]};
+					for (i=0; item=me.created[i]; i++) {req.created.push(requestRecord(req, item));}
+					for (i=0; item=me.updated[i]; i++) {req.updated.push(requestRecord(req, item));}
+					for (i=0; item=me.deleted[i]; i++) {req.deleted.push(requestRecord(req, item));}
 					items.visit(function(node){
-						req.ids.push(node.key);
-						req.versions.push(node.data[0][me.definition.version]);
+						if (node.key) {
+							req.ids.push(node.key);
+							req.versions.push(node.data[0][me.definition.version]);
+						}
 					});
 					return req;
 				};}
@@ -217,12 +222,24 @@ function WebDB(name, options){
 			Object.defineProperty(me, 'processSynchResponse', {
 				get: function(){return function processSynchResponse(res) {
 					var changed;
+					// clear out results from previous synch
+					stale.splice(0, stale.length); 
+					denied.splice(0, denied.length); 
+					failed.splice(0, failed.length); 
+					reasons.splice(0, reasons.length);
+					// process
 					if (handleCreated(res)) {changed = true;}
 					if (handleUpdated(res)) {changed = true;}
 					if (handleDeleted(res)) {changed = true;}
-					handlePurged(res);
+					if (handlePurged(res)) {changed = true;}
 					handleStale(res);
+					handleDenied(res);
 					handleFailed(res);
+					// clear out history
+//					created.splice(0, created.length); 
+//					updated.splice(0, updated.length); 
+//					deleted.splice(0, deleted.length); 
+//					future.splice(0, future.length);
 					return !!changed;
 				};}
 			});
@@ -231,18 +248,19 @@ function WebDB(name, options){
 			Object.defineProperty(me, 'created', {get: function(){return created.concat();}});
 			Object.defineProperty(me, 'updated', {get: function(){return updated.concat();}});
 			Object.defineProperty(me, 'deleted', {get: function(){return deleted.concat();}});
-			Object.defineProperty(me, 'stale', {get: function(){return stale.concat();}});
 			Object.defineProperty(me, 'future', {get: function(){return future.concat();}});
+			Object.defineProperty(me, 'stale', {get: function(){return stale.concat();}});
+			Object.defineProperty(me, 'denied', {get: function() {return denied.concat();}});
 			Object.defineProperty(me, 'failed', {get: function(){return failed.concat();}});
-			Object.defineProperty(me, 'failure', {get: function() {return failure;}});
+			Object.defineProperty(me, 'reasons', {get: function() {return reasons.concat();}});
 		}
 
 
 		// ===== PER-TABLE PRIVATE VARIABLES =====
 
-		var 
+		var
 		// the records themselves. This represents the current dataset
-		items = new Index({unique:true, id:id, equals:itemEquals}),
+		items = new Index({unique:true, id:id, equals:itemEquals, compare:keyCompare, keyType:me.definition.columns[me.definition.pk] && me.definition.columns[me.definition.pk].type || undefined}),
 		// stores indexes to increase search speed
 		indexes = createIndexes();
 
@@ -255,19 +273,20 @@ function WebDB(name, options){
 			updated = [],
 			// records that have been deleted at this side since last synch
 			deleted = [],
-			// records that had been updated at this side but also on the server side 
-			// and went stale since last synch
-			stale = [],
 			// records that had been updated before and then were updated again while a 
 			// synch was in progress and hence would be considered stale when synch completes
 			// these will overwrite the server result as we may safely assume the user
 			// will choose his own new edits vs his own old edits.
 			future = [],
-			// records that could not be saved to the server
+			// records that had been updated at this side but also on the server side 
+			// and went stale since last synch
+			stale = [],
+			// records that were not allowed to be saved by the server
+			denied = [],
+			// records that could not be saved due to (validation) errors
 			failed = [],
-			// object containing details on the error that caused synch failure, 
-			// or null if there was no failure during last synch
-			failure = null;
+			// array of failure reason strings, one for each failed record
+			reasons = [];
 			
 			db.tables.set({name: name});
 			for (var col in definitions[name].columns) {
@@ -280,16 +299,19 @@ function WebDB(name, options){
 
 		// ===== PER-TABLE PRIVATE FUNCTIONS =====
 		// note the use of variable 'me' and other per-table private vars here
-
-		var pkCol = meta ? 'name' : db.columns.get({table:name, pk:true})[0].name;
-		
-		function id(item) {return item[pkCol];}
+		function id(item) {return item[me.definition.pk];}
 
 		function itemEquals(a, b){
 			// This function assumes the object has the id column in it
 			a = typeof a == 'object' ? id(a) : a;
 			b = typeof b == 'object' ? id(b) : b;
 			return equals(a, b);
+		}
+		
+		function keyCompare(a, b){
+			if (a && a.compare) {return a.compare(b);}
+			if (b && b.compare) {0 - b.compare(a);}
+			return a < b ? -1 : b < a ? 1 : 0;
 		}
 
 		function createIndexes() {
@@ -303,31 +325,37 @@ function WebDB(name, options){
 		}
 
 		function get(criteria) {
-			var i, j, key, pk, pks, fast={}, slow={}, idSet={}, results=[];
-			if ((typeof criteria != 'object') && (Object(criteria) instanceof me.definition.columns[pkCol].type)) {
+			var i, j, key, pk, pks, fast={}, slow={}, idSet={}, results=[], tableScan=true;
+			if (Object(criteria) instanceof me.definition.columns[me.definition.pk].type) {
 				pk = criteria;
 				criteria = {};
-				criteria[pkCol] = pk;
+				criteria[me.definition.pk] = pk;
 			}
 			for (key in criteria) {
-				if (pkCol === key) {pks = criteria[key];}
+				if (key === me.definition.pk) {pks = criteria[key];}
 				else if (indexes[key]) {fast[key] = criteria[key];}
 				else {slow[key] = criteria[key];}
 			}
-			var tableScan = true;
-			if (typeof pks != 'undefined') {
-				if (!Array.isArray(pks)) {pks = [pks];}
-				for (i=0; i<pks.length; i++) {idSet[pks[i]] = 1;}
+			
+			pks = pks !== undefined ? ((! (pks instanceof Array)) ? [pks] : pks) : [];
+			for (i=0; i<pks.length; i++) {
+				pks[i] = items.search(pks[i]);
+				for (j=0; j<pks[i].length; j++) {
+					pk = id(pks[i][j]); 
+					idSet[pk] = pk;
+				}
 				tableScan = false;
 			}
+			
 			for (key in fast) {
-				if (!Array.isArray(fast[key])) {fast[key] = [fast[key]];}
+				fast[key]  = fast[key] !== undefined ? ((! (fast[key] instanceof Array)) ? [fast[key]] : fast[key]) : [];
 				for (i=0; i<fast[key].length; i++) {
 					pks = indexes[key].search(fast[key][i]);
 					var newIdSet = {};
 					for (j=0; j<pks.length; j++) {
-						if (tableScan || idSet[pks[j]]) { // on first iteration, add all found results
-							newIdSet[pks[j]] = 1;
+						pk = pks[j];
+						if (tableScan || idSet[pk]) { // on first iteration, add all found results
+							newIdSet[pk] = pk;
 						}
 					}
 					idSet = newIdSet;
@@ -339,13 +367,8 @@ function WebDB(name, options){
 			}
 			else {
 				for (pk in idSet) {
-					var records = items.search(pk);
+					var records = items.search(idSet[pk]);
 					if (records.length) {results.push(records[0]);}
-				}
-			}
-			for (i=0; i<results.length; i++) {
-				if (! (results[i] instanceof me.definition.entityType)) {
-					results[i] = me.definition.factory(results[i]);
 				}
 			}
 			return Object.keys(slow).length ? matches(results, slow) : results;
@@ -356,6 +379,7 @@ function WebDB(name, options){
 			// and any combination of those. Use eachArg to normalize it. 
 			// The callback is called for every individual item
 			var results = eachArg(arguments, me, function(item) {
+				if (! (item instanceof me.definition.entityType)) {item = me.definition.factory(item);}
 				var backup = handleSet(item);
 				handleSetHistory(item, backup);
 				return [item]; // always return arrays for simplicity
@@ -395,7 +419,7 @@ function WebDB(name, options){
 			if (!meta && db.options.synch) {
 				// item had been deleted previously?
 				idx = indexOf(deleted, item);
-				if (idx !== -1) {backup = deleted.splice(idx, 1);}
+				if (idx !== -1) {backup = deleted.splice(idx, 1)[0];}
 
 				// is this item already in the remote db?
 				if (me.persistent(item)) {
@@ -419,11 +443,11 @@ function WebDB(name, options){
 				else {
 					idx = indexOf(created, item);
 					if (idx === -1) {created.push(item);}
+					else {created.splice(idx, 1, item);}
 					idx = indexOf(deleted, item);
 					if (idx !== -1) {deleted.splice(idx, 1);}
 				}
 			}
-			return backup;
 		}
 
 		function del() {
@@ -473,29 +497,51 @@ function WebDB(name, options){
 			}
 			return backup;
 		}
+		
+		function requestRecord(request, item) {
+			if (item === undefined) {return item;}
+			var result = []; 
+			for (var i=0,col; col=request.columns[i]; i++) {
+				result.push(item[col]);
+			}
+			return result;
+		}
 
 		function responseItem(response, record) {
 			if (record === undefined) {return record;}
 			var result = {}; 
 			for (var i=0,col; col=response.columns[i]; i++) {
-				result[col] = record[i];
+				var def = me.definition.columns[col];
+				if ((record[i] instanceof Array) && def && (def.type instanceof Array)) {
+					var type = def.type[0];
+					result[col] = [];
+					for (var j=0; j<record[i].length; j++) {
+						result[col][j] = new type(record[i][j]);
+					}
+				}
+				else {
+					if (def && def.type && (def.type !== String) && (def.type !== Number) && (def.type !== Object)) {
+						record[i] = new def.type(record[i]);
+					}
+					result[col] = record[i];
+				}
 			}
-			// TODO custom entity types
-			// E.G. result = new entityType(result);
-			return result;
+			return me.definition.factory(result);
 		}
 		
 		function handleCreated(response) {
-			var changed, i, item;
+			var changed, i, item, idx;
 			for (i=0; item=responseItem(response, response.created[i]); i++) {
 				if (!handleSet(item)) {changed = true;}
+				var idx = indexOf(created, item);
+				if (idx !== -1) {created.splice(idx, 1);}
 			}
-			log && response.created.length && log.debug('Processed ' + response.created.length + ' created items.');
+			log && response.created.length && log.debug(name + ': Received ' + response.created.length + ' created items.');
 			return !!changed;
 		}
 
 		function handleUpdated(response) {
-			var changed, i, item, idx, key, fut, merged;
+			var changed, i, item, idx, key, fut, stal;
 			for (i=0; item=responseItem(response, response.updated[i]); i++) {
 				// if we have future items, try to merge the changes into the new version of the item
 				idx = indexOf(future, item);
@@ -507,25 +553,35 @@ function WebDB(name, options){
 					if (idx !== -1) {updated.splice(idx, 1, item);}
 					else {updated.push(item);}
 					// now merge changes from future item onto server item
-					merged = merge({}, item); // makes clone
 					for (key in fut) {
 						if (key !== me.definition.version) {
-							merged[key] = fut[key]; 
+							item[key] = fut[key]; 
 						}
 					}
-					// replace item with the merged version
-					handleSet(merged);
+					// don't mark as changed as the item being present in future items means that 
+					// most likely the update was coming from this client itself
 				}
 				else {
-					// remove saved item from the updated items list
 					idx = indexOf(updated, item);
-					if (idx !== -1) {updated.splice(idx, 1);}
-					else {changed = true;}
-					// replace item with the saved version
-					handleSet(item);
+					if (idx !== -1) {
+						// The item was updated on the server, so remove from updated list
+						updated.splice(idx, 1);
+					}
+					else {
+						idx = indexOf(deleted, item);
+						if (idx !== -1) {
+							// This item was deleted on the client, but updated on the server
+							// remove from deleted list and add to stale list
+							stal = deleted.splice(idx, 1)[0];
+							if (indexOf(stale, stal) === -1) {stale.push(stal);}
+						}
+					}
+					changed = true;
 				}
+				// Overwrite existing item with server version
+				handleSet(item);
 			}
-			log && response.updated.length && log.debug('Processed ' + response.updated.length + ' updated items.');
+			log && response.updated.length && log.debug(name + ': Received ' + response.updated.length + ' updated items.');
 			return !!changed;
 		}
 
@@ -536,7 +592,7 @@ function WebDB(name, options){
 				idx = indexOf(deleted, id);
 				if (idx !== -1) {deleted.splice(idx, 1);}
 			}
-			log && response.deletedIds.length && log.debug('Processed ' + response.deletedIds.length + ' deleted items.');
+			log && response.deletedIds.length && log.debug(name + ': Received ' + response.deletedIds.length + ' deleted items.');
 			return !!changed;
 		}
 
@@ -547,9 +603,31 @@ function WebDB(name, options){
 				idx = indexOf(stale, item);
 				if (idx === -1) {stale.push(item);}
 				else {stale.splice(idx, 1, item);}
-				clearHistory(item);
 			}
-			log && response.stale.length && log.debug('Processed ' + response.stale.length + ' stale items.');
+			log && response.stale.length && log.debug(name + ': Received ' + response.stale.length + ' stale items.');
+		}
+
+		function handleDenied(response) {
+			var i, item, backup, idx;
+			for (i=0; item=responseItem(response, response.denied[i]); i++) {
+				idx = indexOf(denied, item);
+				if (idx === -1) {denied.push(item);}
+				else {denied.splice(idx, 1, item);}
+				// if the item's creation was denied, remove it
+				idx = indexOf(created, item); 
+				if (idx !== -1) {
+					created.splice(idx, 1);
+					handleDel(id(item));
+					continue;
+				}
+				// if the item's update was denied, restore original
+				idx = indexOf(updated, item); {
+					backup = updated[idx];
+					handleDel(id(item));
+					handleSet(backup);
+				}
+			}
+			log && response.denied.length && log.debug(name + ': Received ' + response.denied.length + ' denied items.');
 		}
 
 		function handleFailed(response) {
@@ -558,24 +636,57 @@ function WebDB(name, options){
 				idx = indexOf(failed, item);
 				if (idx === -1) {failed.push(item);}
 				else {failed.splice(idx, 1, item);}
-				clearHistory(item);
 			}
-			log && response.failed.length && log.debug('Processed ' + response.failed.length + ' failed items.');
+			log && response.failed.length && log.debug(name + ': Received ' + response.failed.length + ' failed items.');
 		}
 
-		function handlePurged(/*response*/) {
-			// TODO handle purged items
+		function handlePurged(response) {
+			var i, id, changed;
+			for (i=0; id=response.purgedIds[i]; i++) {
+				if (handleDel(id)) {changed = true;}
+			}
+			log && response.purgedIds.length && log.debug(name + ': Received ' + response.purgedIds.length + ' purged items.');
+			return !!changed;
+		}
+		
+		function equals(one, other) {
+			return (one === other || one.equals && one.equals(other) || other.equals && other.equals(one) ||
+					(typeof one == 'object') && (id(one) !== undefined) && equals(other, id(one)));
 		}
 
-		function clearHistory(item) {
-			var idx;
-			idx = indexOf(created, item);
-			if (idx !== -1) {created.splice(idx, 1);}
-			idx = indexOf(updated, item);
-			if (idx !== -1) {updated.splice(idx, 1);}
-			idx = indexOf(deleted, item);
-			if (idx !== -1) {deleted.splice(idx, 1);}
+
+		// returns index of given element in given list, using given comparator
+		function indexOf(list, element, comparator) {
+			for (var i=0,item; item=list[i]; i++) {
+				if (equals(item, element, comparator)) {
+					return i;
+				}
+			}
+			return -1;
 		}
+
+		function matches(items, criteria) {
+			var i, item, key, match, len=0, results = new Array(items.length);
+			for (i=0,item; item=items[i]; i++) {
+				match = true;
+				for (key in criteria) {
+					if ((Array.isArray && Array.isArray(criteria[key])) || (criteria[key] instanceof Array)) {
+						if (indexOf(criteria[key], item[key]) === -1) {
+							match = false;
+							break;
+						}
+					}
+					else if (! equals(items[i][key], criteria[key])) {
+						match = false;
+						break;
+					}
+				}
+				if (match) {results[len++] = item;}
+			}
+			results.length = len;
+			return results;
+		}
+		
 	}
 	// /Table
 
@@ -589,10 +700,33 @@ function WebDB(name, options){
 	Table.fromJSON = function fromJSON(/* value */) {
 	};
 
+	function logRequest(req) {
+		var i, name, names = Object.keys(tables), result='', msg, k, key;
+		for (i=0; name=names[i]; i++) {
+			if (req[name]) {
+				msg = '';
+				for (k=0; key=['created','updated','deleted'][k]; k++) {
+					if (req[name][key].length) {
+						msg += (msg ? ', ' : '') + req[name][key].length + ' ' + key;
+					}
+				}
+				if (msg) {result += (result ? ', ' : '') + '`' + name + '`: ' + msg;}
+			}
+		}
+		return result;
+	}
+
 	function SynchRequest() {
 		this.lastSynched = lastSynched;
-		for (var i=0,table; table=tables[i]; i++) {
-			this[table.name] = table.createSynchRequest();
+		var i, name, names = Object.keys(tables), msg='';
+		for (i=0; name=names[i]; i++) {
+			if (tables[name].createSynchRequest) {
+				this[name] = tables[name].createSynchRequest();
+			}
+		}
+		if (log && log.level <= log.INFO) {
+			msg = logRequest(this);
+			log.info('Synching WebDB `' + db.name + '` ' + (msg ? '(' + msg + ')' : '') + '...', this);
 		}
 	}
 
@@ -658,7 +792,7 @@ function WebDB(name, options){
 				retries--;
 				setTimeout(function(){
 					trySynch();
-				}, options.synchRetryWait);
+				}, options.synchRetryWait * (options.synchRetryCount - retries + 1));
 			}
 		});
 	}
@@ -712,8 +846,8 @@ function WebDB(name, options){
 
 	// ===== INITIALIZATION =====
 
-	createTable('tables', META_TABLES_DEF, true /* meta */);
-	createTable('columns', META_COLUMNS_DEF, true /* meta */);
+	createTable(undefined, 'tables', META_TABLES_DEF, true /* meta */);
+	createTable(undefined, 'columns', META_COLUMNS_DEF, true /* meta */);
 	// meta data about the meta tables...
 	db.tables.set({name:'tables'}, {name:'columns'});
 	for (var col in META_TABLES_DEF.columns) {db.columns.set(merge({id:db.columns.length+1, name:col, table:'tables'}, META_TABLES_DEF.columns[col]));}
@@ -734,23 +868,32 @@ function WebDB(name, options){
 		return result;
 	}
 
-	function expandDef(def) {
+	function expandDef(def, entityType, meta) {
 		if (!def) {def = DEFAULT_TABLE_DEF;}
-		if (!def.columns) {def = {columns: def};}
-		var pk;
+		if (!def.columns) {def = {columns: def, entityType: entityType || Object};}
+		var pk, version;
 		for (var col in def.columns) {
-			if (typeof def.columns[col] == 'function') {def.columns[col] = {type: def.columns[col]};}
+			if ((typeof def.columns[col] == 'function') || (def.columns[col] instanceof Array)) {
+				def.columns[col] = {type: def.columns[col]};
+			}
 			if (def.columns[col].pk) {
-				if (pk) {throw new Error('Multiple primary key columns found in table definition: `' + def.pk + '` and `' + col + '`.');}
+				if (pk) {throw new Error('Multiple primary key columns found in table definition: `' + pk + '` and `' + col + '`.');}
 				pk = col;
+			}
+			if (def.columns[col].version) {
+				if (version) {throw new Error('Multiple version columns found in table definition: `' + version + '` and `' + col + '`.');}
+				version = col;
 			}
 		}
 		if (!pk) {throw new Error('No primary key column found in table definition.');}
+		if (db.options.synch && !meta && !version) {throw new Error('Synch is enabled, but no version column found in table definition.');} 
+		def.pk = pk;
+		if (version) {def.version = version;}
 		return def;
 	}
 
-	function createTable(name, def, meta) {
-		definitions[name] = merge(definitions[name] || {}, DEFAULT_TABLE_DEF, expandDef(def));
+	function createTable(entityType, name, def, meta) {
+		definitions[name] = merge(definitions[name] || {}, DEFAULT_TABLE_DEF, expandDef(def, entityType, meta));
 		Object.defineProperty(db, name, {
 			configurable: true, 
 			enumerable: true,
@@ -778,46 +921,6 @@ function eachArg(args, obj, fn) {
 	return fn.call(obj, args);
 }
 
-function equals(one, other) {
-	return (one === other ||
-			one.equals && one.equals(other) ||
-			other.equals && other.equals(one) ||
-			(typeof one === 'object' && one.valueOf() == other) ||
-			(typeof other === 'object' && other.valueOf() == one) ||
-			(typeof one === 'object' && typeof other === 'object' && one.valueOf() == other.valueOf()));
-}
-
-// returns index of given element in given list, using given comparator
-function indexOf(list, element, comparator) {
-	for (var i=0,item; item=list[i]; i++) {
-		if (equals(item, element, comparator)) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-function matches(items, criteria) {
-	var i, item, key, match, len=0, results = new Array(items.length);
-	for (i=0,item; item=items[i]; i++) {
-		match = true;
-		for (key in criteria) {
-			if ((Array.isArray && Array.isArray(criteria[key])) || (criteria[key] instanceof Array)) {
-				if (indexOf(criteria[key], item[key]) === -1) {
-					match = false;
-					break;
-				}
-			}
-			else if (! equals(items[i][key], criteria[key])) {
-				match = false;
-				break;
-			}
-		}
-		if (match) {results[len++] = item;}
-	}
-	results.length = len;
-	return results;
-}
 
 // Based on code by [Louis Chatriot](https://github.com/louischatriot)
 // from his project [node-binary-search-tree](https://github.com/louischatriot/node-binary-search-tree)
@@ -834,6 +937,7 @@ var Index = WebDB.Index = (function(){
 	 * @param {Boolean}  options.unique Whether to enforce a 'unique' constraint on the key or not
 	 * @param {Function} options.compare Optional key comparison function
 	 * @param {Function} options.equals Optional data equality comparison function
+	 * @param {Function} options.keyType Optional constructor function for when key type is not primitive
 	 * @param {Function} options.id Optional id extraction function
 	 */
 	function Tree(options) {
@@ -841,6 +945,7 @@ var Index = WebDB.Index = (function(){
 		this.unique = options && options.unique || false;
 		this.compare = options && options.compare || compare;
 		this.equals = options && options.equals || equals;
+		this.keyType = options && options.keyType || undefined;
 		this.id = options && options.id || undefined;
 	}
 
@@ -1062,8 +1167,9 @@ var Index = WebDB.Index = (function(){
 	 */
 	Node.prototype.search = function(query) {
 		if (!this.hasOwnProperty('key')) { return []; }
-		var key;
-		if (typeof query == 'object') {
+		var key, t=this.tree.keyType;
+		
+		if ((typeof query == 'object') && ((!t) || (! (query instanceof t)) || (t === String) || (t === Number))) { 
 			if (query.hasOwnProperty('$gt') || query.hasOwnProperty('$gte') || 
 				query.hasOwnProperty('$lt') || query.hasOwnProperty('$lte')) {
 				// bounds query
@@ -1075,7 +1181,7 @@ var Index = WebDB.Index = (function(){
 		}
 		else {key = query;}
 		if (key === undefined) {return [];}
-		if (this.tree.compare(this.key, key) === 0) { return this.data; }
+		if (this.tree.compare(key, this.key) === 0) { return this.data; }
 		if (this.tree.compare(key, this.key) < 0) {
 			if (this.left) {return this.left.search(key);} 
 			else {return [];}
