@@ -1,4 +1,6 @@
 # WebDB <sup><sub>v0.5.0</sub></sup>
+
+[![Greenkeeper badge](https://badges.greenkeeper.io/Download/webdb.svg)](https://greenkeeper.io/)
 **If the client can't get to the database, we bring the database to the client.**
 [project website](https://download.github.io/webdb)
 
